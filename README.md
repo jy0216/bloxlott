@@ -1,2 +1,209 @@
-# bloxlott
-그냥
+--// Auto Fire LootPoint Prompts (World 1 + World 2)
+local ALLOWED_PLACE_IDS = {
+    [87188889493383]  = true, -- World 1
+    [133117948363067] = true, -- World 2
+}
+
+if not ALLOWED_PLACE_IDS[game.PlaceId] then return end
+
+--== SETTINGS ==--
+getgenv().AutoFireLootPrompts = true
+getgenv().FireRange = 100
+getgenv().FireInterval = 0
+getgenv().WalkSpeed = 18 -- constant walk speed
+
+--== SERVICES ==--
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+--== FIND LootPoints ROOT safely ==--
+local function getLootRoot()
+    local runtime = workspace:FindFirstChild("Runtime")
+    if runtime then
+        local loot = runtime:FindFirstChild("LootPoints")
+        if loot then return loot end
+    end
+    return workspace:FindFirstChild("LootPoints")
+end
+
+--== AUTO FIRE LOOP ==--
+task.spawn(function()
+    while task.wait() do
+        if not getgenv().AutoFireLootPrompts then break end
+
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then continue end
+
+        local lootRoot = getLootRoot()
+        if not lootRoot then continue end
+
+        for _, desc in ipairs(lootRoot:GetDescendants()) do
+            if desc:IsA("ProximityPrompt") then
+                local base = desc.Parent
+                if not (base and base:IsA("BasePart")) then continue end
+
+                local within = true
+                if getgenv().FireRange then
+                    local ok, mag = pcall(function()
+                        return (base.Position - root.Position).Magnitude
+                    end)
+                    within = ok and mag and mag <= getgenv().FireRange
+                end
+
+                if within then
+                    pcall(function() fireproximityprompt(desc) end)
+                    task.wait(getgenv().FireInterval)
+                end
+            end
+        end
+    end
+end)
+
+--== MOB STATUS GUI ==--
+local function getNode(path)
+    local node = workspace
+    for _, key in ipairs(path) do
+        node = node:FindFirstChild(key)
+        if not node then return nil end
+    end
+    return node
+end
+
+local function createGUI(labelsCount)
+    local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+    gui.Name = "MobStatusGUI"
+    gui.ResetOnSpawn = false
+
+    local frame = Instance.new("Frame", gui)
+    frame.Size = UDim2.new(0, 160, 0, 18 + labelsCount * 18)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.25
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Draggable = true
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 18)
+    title.Text = "Boss Status"
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 14
+    title.TextColor3 = Color3.new(1,1,1)
+
+    return gui, frame
+end
+
+--== TARGETS PER WORLD ==--
+local TARGETS = nil
+
+if game.PlaceId == 87188889493383 then
+    TARGETS = {
+        Slime    = {"Runtime","Enemies","1_3_100"},
+        Spider   = {"Runtime","Enemies","1_2_101"},
+        Skeleton = {"Runtime","Enemies","1_2_100"},
+        Evoker   = {"Runtime","Enemies","1_4_100"},
+    }
+
+elseif game.PlaceId == 133117948363067 then
+    TARGETS = {
+        ["Piglin General"] = {"Runtime","Enemies","2_1_100"},
+        ["Mutated Fungus"] = {"Runtime","Enemies","2_2_100"}, -- added
+    }
+end
+
+--== BUILD GUI ==--
+if TARGETS then
+    local count = 0
+    for _ in pairs(TARGETS) do count += 1 end
+
+    local gui, frame = createGUI(count)
+    local labels = {}
+    local i = 0
+
+    for name in pairs(TARGETS) do
+        local lbl = Instance.new("TextLabel", frame)
+        lbl.Position = UDim2.new(0, 8, 0, 20 + i * 18)
+        lbl.Size = UDim2.new(1, -10, 0, 16)
+        lbl.BackgroundTransparency = 1
+        lbl.Font = Enum.Font.SourceSans
+        lbl.TextSize = 13
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Text = name .. " • DEAD"
+        lbl.TextColor3 = Color3.fromRGB(200,0,0)
+        labels[name] = lbl
+        i += 1
+    end
+
+    task.spawn(function()
+        while task.wait(1) do
+            for name, path in pairs(TARGETS) do
+                local exists = getNode(path)
+                local lbl = labels[name]
+                if exists then
+                    lbl.Text = name .. " • ALIVE"
+                    lbl.TextColor3 = Color3.fromRGB(0,200,0)
+                else
+                    lbl.Text = name .. " • DEAD"
+                    lbl.TextColor3 = Color3.fromRGB(200,0,0)
+                end
+            end
+        end
+    end)
+end
+
+print("[AutoFireLootPrompts] Active")
+
+---------------------------------------------------------------------
+--==================== AUTO SWING + MINI GUI =======================--
+---------------------------------------------------------------------
+
+getgenv().AutoSwing = false
+
+-- GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "AutoSwingGUI"
+gui.ResetOnSpawn = false
+
+local button = Instance.new("TextButton", gui)
+button.Size = UDim2.new(0, 120, 0, 25)
+button.Position = UDim2.new(0, 10, 0, 200)
+button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+button.BackgroundTransparency = 0.2
+button.BorderSizePixel = 0
+button.Font = Enum.Font.SourceSansBold
+button.TextSize = 14
+button.TextColor3 = Color3.new(1,1,1)
+button.Text = "Auto Swing: OFF"
+button.AutoButtonColor = true
+button.Active = true
+button.Draggable = true
+
+-- Click to toggle Auto Swing
+button.MouseButton1Click:Connect(function()
+    getgenv().AutoSwing = not getgenv().AutoSwing
+    button.Text = "Auto Swing: " .. (getgenv().AutoSwing and "ON" or "OFF")
+end)
+
+-- Auto Swing + Constant WalkSpeed Loop
+task.spawn(function()
+    while task.wait(0.1) do
+        local char = player.Character
+        if char then
+            -- Maintain WalkSpeed
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = getgenv().WalkSpeed
+            end
+
+            -- Auto Swing tool if enabled
+            if getgenv().AutoSwing then
+                local tool = char:FindFirstChildOfClass("Tool")
+                if tool then
+                    pcall(function() tool:Activate() end)
+                end
+            end
+        end
+    end
+end)

@@ -10,7 +10,7 @@ if not ALLOWED_PLACE_IDS[game.PlaceId] then return end
 getgenv().AutoFireLootPrompts = true
 getgenv().FireRange = 100
 getgenv().FireInterval = 0
-getgenv().WalkSpeed = 35 -- constant walk speed
+getgenv().WalkSpeed = 40 -- constant walk speed
 
 --== SERVICES ==--
 local Players = game:GetService("Players")
@@ -109,7 +109,8 @@ if game.PlaceId == 87188889493383 then
 elseif game.PlaceId == 133117948363067 then
     TARGETS = {
         ["Piglin General"] = {"Runtime","Enemies","2_1_100"},
-        ["Mutated Fungus"] = {"Runtime","Enemies","2_2_100"}, -- added
+        ["Mutated Fungus"] = {"Runtime","Enemies","2_2_100"},
+        ["Magma Lord"] = {"Runtime","Enemies","2_3_100"},-- added
     }
 end
 
